@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Book Reader - Neural TTS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #e4e4e4;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 0;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        header p {
+            color: #888;
+            font-size: 1.1rem;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .upload-zone {
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 50px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .upload-zone .icon {
+            font-size: 4rem;
+            margin-bottom: 15px;
+        }
+
+        .upload-zone p {
+            color: #888;
+            margin-top: 10px;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            opacity: 0.9;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .pdf-info {
+            display: none;
+        }
+
+        .pdf-info.active {
+            display: block;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .info-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .info-item .value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+
+        .info-item .label {
+            color: #888;
+            font-size: 0.85rem;
+            margin-top: 5px;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-group label {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        select {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        select option {
+            background: #1a1a2e;
+        }
+
+        .player-section {
+            display: none;
+        }
+
+        .player-section.active {
+            display: block;
+        }
+
+        .audio-player {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .audio-player audio {
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .chunk-nav {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .chunk-nav .current {
+            font-size: 1.2rem;
+            color: #00d4ff;
+        }
+
+        .text-preview {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 0.95rem;
+            line-height: 1.7;
+            color: #ccc;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 30px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .status {
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .status.success {
+            display: block;
+            background: rgba(0, 255, 100, 0.1);
+            border: 1px solid rgba(0, 255, 100, 0.3);
+            color: #4ade80;
+        }
+
+        .status.error {
+            display: block;
+            background: rgba(255, 50, 50, 0.1);
+            border: 1px solid rgba(255, 50, 50, 0.3);
+            color: #f87171;
+        }
+
+        .chunk-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+
+        .chunk-item {
+            padding: 10px 15px;
+            background: rgba(255, 255, 255, 0.03);
+            margin-bottom: 5px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chunk-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .chunk-item.active {
+            background: rgba(0, 212, 255, 0.15);
+            border-left: 3px solid #00d4ff;
+        }
+
+        .chunk-item .number {
+            color: #00d4ff;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .chunk-item .preview {
+            flex: 1;
+            color: #888;
+            font-size: 0.85rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        @media (max-width: 600px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
+            
+            header h1 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📚 PDF Book Reader</h1>
+            <p>Upload any PDF and listen with high-quality neural voices</p>
+        </header>
+
+        <!-- Upload Section -->
+        <div class="card" id="uploadSection">
+            <div class="upload-zone" id="dropZone">
+                <div class="icon">📄</div>
+                <h3>Drop your PDF here</h3>
+                <p>or click to browse</p>
+            </div>
+            <input type="file" id="fileInput" accept=".pdf">
+        </div>
+
+        <!-- Loading -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p id="loadingText">Processing PDF...</p>
+        </div>
+
+        <!-- Status -->
+        <div class="status" id="status"></div>
+
+        <!-- PDF Info Section -->
+        <div class="card pdf-info" id="pdfInfo">
+            <h3 id="pdfName" style="margin-bottom: 15px;">📖 Document</h3>
+            
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="value" id="pageCount">0</div>
+                    <div class="label">Pages</div>
+                </div>
+                <div class="info-item">
+                    <div class="value" id="chunkCount">0</div>
+                    <div class="label">Sections</div>
+                </div>
+                <div class="info-item">
+                    <div class="value" id="charCount">0</div>
+                    <div class="label">Characters</div>
+                </div>
+                <div class="info-item">
+                    <div class="value" id="duration">0</div>
+                    <div class="label">Est. Minutes</div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <label>Voice</label>
+                    <select id="voiceSelect"></select>
+                </div>
+                <div class="control-group">
+                    <label>Speed</label>
+                    <select id="speedSelect">
+                        <option value="-30%">Very Slow</option>
+                        <option value="-15%">Slow</option>
+                        <option value="+0%" selected>Normal</option>
+                        <option value="+15%">Fast</option>
+                        <option value="+30%">Very Fast</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="btn" id="startBtn" style="width: 100%;">
+                ▶️ Start Reading
+            </button>
+
+            <!-- Chunk List -->
+            <div class="chunk-list" id="chunkList"></div>
+        </div>
+
+        <!-- Player Section -->
+        <div class="card player-section" id="playerSection">
+            <div class="audio-player">
+                <audio id="audioPlayer" controls></audio>
+                
+                <div class="chunk-nav">
+                    <button class="btn btn-secondary" id="prevBtn">⬅️ Previous</button>
+                    <span class="current">
+                        Section <span id="currentChunk">1</span> of <span id="totalChunks">1</span>
+                    </span>
+                    <button class="btn btn-secondary" id="nextBtn">Next ➡️</button>
+                </div>
+            </div>
+
+            <h4 style="margin-bottom: 10px; color: #888;">📝 Current Text</h4>
+            <div class="text-preview" id="textPreview"></div>
+        </div>
+
+        <!-- New PDF Button -->
+        <div style="text-align: center; margin-top: 20px;">
+            <button class="btn btn-secondary" id="newPdfBtn" style="display: none;">
+                📄 Upload New PDF
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let currentPdfId = null;
+        let currentChunk = 0;
+        let totalChunks = 0;
+        let chunks = [];
+
+        // Elements
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const uploadSection = document.getElementById('uploadSection');
+        const loading = document.getElementById('loading');
+        const loadingText = document.getElementById('loadingText');
+        const status = document.getElementById('status');
+        const pdfInfo = document.getElementById('pdfInfo');
+        const playerSection = document.getElementById('playerSection');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const voiceSelect = document.getElementById('voiceSelect');
+        const speedSelect = document.getElementById('speedSelect');
+        const textPreview = document.getElementById('textPreview');
+        const chunkList = document.getElementById('chunkList');
+        const startBtn = document.getElementById('startBtn');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const newPdfBtn = document.getElementById('newPdfBtn');
+
+        // Load voices
+        async function loadVoices() {
+            const res = await fetch('/api/voices');
+            const voices = await res.json();
+            
+            voiceSelect.innerHTML = voices.map(v => 
+                `<option value="${v.id}">${v.name}</option>`
+            ).join('');
+        }
+
+        // Upload handlers
+        dropZone.addEventListener('click', () => fileInput.click());
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type === 'application/pdf') {
+                uploadFile(file);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files[0]) {
+                uploadFile(e.target.files[0]);
+            }
+        });
+
+        // Upload file
+        async function uploadFile(file) {
+            showLoading('Uploading and processing PDF...');
+            hideStatus();
+
+            const formData = new FormData();
+            formData.append('pdf', file);
+
+            try {
+                const res = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await res.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                currentPdfId = data.pdfId;
+                showPdfInfo(data);
+                showStatus('PDF processed successfully!', 'success');
+
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Show PDF info
+        async function showPdfInfo(data) {
+            document.getElementById('pdfName').textContent = '📖 ' + data.filename;
+            document.getElementById('pageCount').textContent = data.totalPages;
+            document.getElementById('chunkCount').textContent = data.totalChunks;
+            document.getElementById('charCount').textContent = (data.totalChars / 1000).toFixed(1) + 'k';
+            document.getElementById('duration').textContent = data.estimatedMinutes;
+
+            // Load chunks
+            const res = await fetch(`/api/pdf/${currentPdfId}`);
+            const pdfData = await res.json();
+            chunks = pdfData.chunks;
+            totalChunks = chunks.length;
+
+            // Render chunk list
+            chunkList.innerHTML = chunks.map((chunk, i) => `
+                <div class="chunk-item" data-index="${i}">
+                    <span class="number">${i + 1}</span>
+                    <span class="preview">${chunk.preview}</span>
+                </div>
+            `).join('');
+
+            // Add click handlers
+            chunkList.querySelectorAll('.chunk-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    playChunk(parseInt(item.dataset.index));
+                });
+            });
+
+            uploadSection.style.display = 'none';
+            pdfInfo.classList.add('active');
+            newPdfBtn.style.display = 'inline-block';
+        }
+
+        // Start reading
+        startBtn.addEventListener('click', () => {
+            playChunk(0);
+        });
+
+        // Play chunk
+        async function playChunk(index) {
+            if (index < 0 || index >= totalChunks) return;
+
+            currentChunk = index;
+            showLoading('Generating audio...');
+
+            try {
+                // Get audio
+                const res = await fetch('/api/tts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        pdfId: currentPdfId,
+                        chunkIndex: index,
+                        voice: voiceSelect.value,
+                        rate: speedSelect.value
+                    })
+                });
+
+                const data = await res.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                // Get text
+                const textRes = await fetch(`/api/pdf/${currentPdfId}/chunk/${index}`);
+                const textData = await textRes.json();
+
+                // Update UI
+                audioPlayer.src = data.audioUrl;
+                audioPlayer.play();
+                textPreview.textContent = textData.text;
+                
+                document.getElementById('currentChunk').textContent = index + 1;
+                document.getElementById('totalChunks').textContent = totalChunks;
+
+                // Update chunk list
+                chunkList.querySelectorAll('.chunk-item').forEach((item, i) => {
+                    item.classList.toggle('active', i === index);
+                });
+
+                playerSection.classList.add('active');
+                hideStatus();
+
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Navigation
+        prevBtn.addEventListener('click', () => playChunk(currentChunk - 1));
+        nextBtn.addEventListener('click', () => playChunk(currentChunk + 1));
+
+        // Auto-play next
+        audioPlayer.addEventListener('ended', () => {
+            if (currentChunk < totalChunks - 1) {
+                playChunk(currentChunk + 1);
+            }
+        });
+
+        // New PDF
+        newPdfBtn.addEventListener('click', () => {
+            currentPdfId = null;
+            currentChunk = 0;
+            chunks = [];
+            
+            uploadSection.style.display = 'block';
+            pdfInfo.classList.remove('active');
+            playerSection.classList.remove('active');
+            newPdfBtn.style.display = 'none';
+            hideStatus();
+        });
+
+        // Helpers
+        function showLoading(text) {
+            loadingText.textContent = text;
+            loading.classList.add('active');
+        }
+
+        function hideLoading() {
+            loading.classList.remove('active');
+        }
+
+        function showStatus(message, type) {
+            status.textContent = message;
+            status.className = 'status ' + type;
+        }
+
+        function hideStatus() {
+            status.className = 'status';
+        }
+
+        // Init
+        loadVoices();
+    </script>
+</body>
+</html>

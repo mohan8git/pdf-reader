@@ -1,0 +1,23 @@
+{
+  "name": "pdf-audio-server",
+  "version": "1.0.0",
+  "description": "PDF to Audio Server with Neural TTS",
+  "type": "module",
+  "scripts": {
+    "start": "tsx watch server.ts",
+    "dev": "tsx watch server.ts"
+  },
+  "dependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^22.10.1",
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
+    "multer": "^2.0.2",
+    "music-metadata": "^11.10.3",
+    "pdf-parse": "^1.1.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.2"
+  }
+}
