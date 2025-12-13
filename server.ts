@@ -11,8 +11,28 @@ import * as musicMetadata from 'music-metadata';
 const execFileAsync = promisify(execFile);
 
 // Configuration
-const PORT = process.env.PORT || 3000;
-const EDGE_TTS_PATH = '/Users/mohan/Library/Python/3.9/bin/edge-tts';
+const PORT = parseInt(process.env.PORT || '3000', 10);
+
+// Auto-detect edge-tts path based on environment
+function getEdgeTTSPath(): string {
+  const possiblePaths = [
+    process.env.EDGE_TTS_PATH,                    // Custom env var
+    '/home/ubuntu/.local/bin/edge-tts',           // Ubuntu user install
+    '/usr/local/bin/edge-tts',                    // System install
+    '/Users/mohan/Library/Python/3.9/bin/edge-tts', // Mac
+    'edge-tts',                                    // In PATH
+  ];
+
+  for (const p of possiblePaths) {
+    if (p && fs.existsSync(p)) return p;
+  }
+
+  // Fallback to just 'edge-tts' and hope it's in PATH
+  return 'edge-tts';
+}
+
+const EDGE_TTS_PATH = getEdgeTTSPath();
+console.log(`[Config] Using edge-tts at: ${EDGE_TTS_PATH}`);
 
 const __dirname = path.dirname(new URL(import.meta.url).pathname);
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
@@ -281,10 +301,10 @@ app.post('/api/tts/custom', async (req: Request, res: Response) => {
   }
 });
 
-// Start server
-app.listen(PORT, () => {
+// Start server - listen on 0.0.0.0 so mobile devices can connect
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`
-  PDF Audio Server running on http://localhost:${PORT}
+  PDF Audio Server running on http://192.168.1.22:${PORT}
 
   Endpoints:
     POST /api/upload      - Upload PDF
